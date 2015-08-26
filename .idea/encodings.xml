@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/eelaiwind/horus/Notification/RunningNotification.java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app/src/main/java/com/eelaiwind/horus/customView/ColorBar.java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app/src/main/java/com/eelaiwind/horus/page/RecordPage.java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app/src/main/java/com/eelaiwind/horus/timeChart/CircleTimeChart.java" charset="UTF-8" />

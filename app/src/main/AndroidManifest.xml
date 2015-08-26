@@ -23,6 +23,7 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value=".page.HomePage" />
         </activity>
+        <service android:name=".Notification.RunningNotification" />
     </application>
 
 </manifest>
