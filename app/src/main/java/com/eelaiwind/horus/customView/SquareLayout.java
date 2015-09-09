@@ -5,7 +5,8 @@ import android.util.AttributeSet;
 import android.widget.LinearLayout;
 
 /**
- * Created by Eelai Wind on 2015/8/22.
+ * 產生方形的Layout
+ * 長跟寬不可以用wrap_content
  */
 public class SquareLayout extends LinearLayout{
     public SquareLayout(Context context) {

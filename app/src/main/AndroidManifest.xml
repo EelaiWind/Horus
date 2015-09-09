@@ -12,16 +12,28 @@
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity
             android:name=".page.RecordPage"
             android:label="@string/title_activity_record_page"
-            android:parentActivityName=".page.HomePage">
+            android:parentActivityName=".page.HomePage" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value=".page.HomePage" />
+        </activity>
+
+        <service android:name=".Notification.RunningNotification" />
+
+        <activity
+            android:name=".page.DebugPage"
+            android:label="@string/title_activity_debug_page"
+            android:parentActivityName=".page.HomePage" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.eelaiwind.horus.page.HomePage" />
         </activity>
     </application>
 
