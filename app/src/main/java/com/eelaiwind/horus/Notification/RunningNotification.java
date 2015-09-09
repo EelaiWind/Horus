@@ -1,15 +1,21 @@
-package com.eelaiwind.horus.Notification;
+package com.eelaiwind.horus.notification;
 
 import android.app.Notification;
 import android.app.Service;
+import android.app.admin.DeviceAdminReceiver;
+import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.wifi.WifiManager;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
-import android.view.View;
+import android.os.PowerManager;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.eelaiwind.horus.PreferenceData;
@@ -22,11 +28,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Calendar;
 
 /**
  * 監測螢幕開啟/關閉的背景service，會把結果記錄在 timeChartDatas 中，方便其他元件繪製長條圖
@@ -43,13 +46,15 @@ public class RunningNotification extends Service{
     public static final String DATA_FILE_NAME = "timeChartData";
     public static final String LAST_DATA_FILE_NAME = "lastTimeChartData";
 
+    private static final int DEFAULT_SLEEP_HOUR = 23;
+    private static final int DEFAULT_WAKE_HOUR = 7;
+
     private SharedPreferences preferences;
     private long todayTime, preTime;
     private TimeCategory preState;
     private ArrayList<TimeChartData> timeChartDatas;
-
     private boolean isScreenON;
-
+    private int field;
     private MyBinder myBinder = new MyBinder();
 
     @Override
@@ -59,8 +64,16 @@ public class RunningNotification extends Service{
 
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
-        BroadcastReceiver screenReceiver = new ScreenReceiver();
+        BroadcastReceiver screenReceiver = new screenReceiver();
         preferences = getSharedPreferences(PreferenceData.FILE_NAME,MODE_PRIVATE);
+
+        try {
+            field = PowerManager.class.getField("PROXIMITY_SCREEN_OFF_WAKE_LOCK").getInt(null);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        }
 
         startForeground(ID, makeNotification());
 
@@ -101,13 +114,13 @@ public class RunningNotification extends Service{
         }
         else{
             Toast.makeText(this,"初始化 todayTime, preTime, preState",Toast.LENGTH_SHORT).show();
-            DateFormat format = SimpleDateFormat.getDateInstance();
-            try {
-                setTodayTime(format.parse(format.format(new Date())).getTime());
-            } catch (ParseException e) {
-                Toast.makeText(this,"Init today time failed",Toast.LENGTH_LONG).show();
-                e.printStackTrace();
-            }
+
+            Calendar c = Calendar.getInstance();
+            c.set(Calendar.HOUR_OF_DAY,0);
+            c.set(Calendar.MINUTE,0);
+            c.set(Calendar.SECOND,0);
+            c.set(Calendar.MILLISECOND,0);
+            setTodayTime(c.getTimeInMillis());
 
             preTime = todayTime;
             preState = TimeCategory.OFF;
@@ -117,6 +130,7 @@ public class RunningNotification extends Service{
                     apply();
 
             timeChartDatas = new ArrayList<>();
+            PreferenceData.UpdateSleepAlarmTime(preferences,DEFAULT_SLEEP_HOUR,0,DEFAULT_WAKE_HOUR,0);
         }
     }
 
@@ -152,6 +166,7 @@ public class RunningNotification extends Service{
 
     @Override
     public IBinder onBind(Intent intent) {
+
         return myBinder;
     }
 
@@ -179,16 +194,18 @@ public class RunningNotification extends Service{
                 e.printStackTrace();
             }
 
-            try {
-                DateFormat format = SimpleDateFormat.getDateInstance();
-                setTodayTime(format.parse(format.format(new Date())).getTime());
-                preTime = todayTime;
-                preferences.edit().putLong(PreferenceData.PRE_TIME, preTime).apply();
-                timeChartDatas.clear();
-            } catch (ParseException e) {
-                Toast.makeText(this, "Init today time failed", Toast.LENGTH_LONG).show();
-                e.printStackTrace();
-            }
+
+            Calendar c = Calendar.getInstance();
+            c.set(Calendar.HOUR_OF_DAY,0);
+            c.set(Calendar.MINUTE, 0);
+            c.set(Calendar.SECOND,0);
+            c.set(Calendar.MILLISECOND, 0);
+            setTodayTime(c.getTimeInMillis());
+
+            preTime = todayTime;
+            preferences.edit().putLong(PreferenceData.PRE_TIME, preTime).apply();
+            timeChartDatas.clear();
+
         }
 
         if (nextState == preState)
@@ -221,13 +238,35 @@ public class RunningNotification extends Service{
         }
     }
 
-    private class ScreenReceiver extends BroadcastReceiver{
+    private class screenReceiver extends BroadcastReceiver{
 
         @Override
         public void onReceive(Context context, Intent intent) {
+
             if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)){
                 isScreenON = true;
                 updateState(TimeCategory.BUSY);
+
+                long sleepTime = preferences.getLong(PreferenceData.SLEEP_TIME,0);
+                long wakeTime = preferences.getLong(PreferenceData.WAKE_TIME,0);
+                long nowTime = System.currentTimeMillis();
+                if (nowTime >= sleepTime && nowTime <= wakeTime){
+                    Toast.makeText(RunningNotification.this,"Time To Sleep",Toast.LENGTH_LONG).show();
+                    Handler handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            lockScreen();
+                        }
+                    },10*1000);
+                }
+                else if (nowTime > wakeTime){
+                    int sleepHour = preferences.getInt(PreferenceData.SLEEP_TIME_HOUR,DEFAULT_SLEEP_HOUR);
+                    int sleepMinute = preferences.getInt(PreferenceData.SLEEP_TIME_MINUTE,0);
+                    int wakeHour = preferences.getInt(PreferenceData.WAKE_TIME_HOUR,DEFAULT_WAKE_HOUR);
+                    int wakeMinute = preferences.getInt(PreferenceData.WAKE_TIME_MINUTE,0);
+                    PreferenceData.UpdateSleepAlarmTime(preferences, sleepHour, sleepMinute, wakeHour, wakeMinute);
+                }
             }
             else{
                 isScreenON = false;
@@ -235,4 +274,20 @@ public class RunningNotification extends Service{
             }
         }
     }
+
+    private void lockScreen(){
+        WifiManager wifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        wifiManager.setWifiEnabled(false);
+        DevicePolicyManager policyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+        ComponentName adminReceiver = new ComponentName(this,ScreenOffAdminReceiver.class);
+        boolean admin = policyManager.isAdminActive(adminReceiver);
+        if (admin) {
+            Log.d("EELAI_EIND", "Going to sleep now.");
+            policyManager.lockNow();
+        } else {
+            Log.d("EELAI_EIND", "Not an admin");
+            Toast.makeText(this,"device_admin_not_enabled",Toast.LENGTH_LONG).show();
+        }
+    }
+
 }

@@ -2,11 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.eelaiwind.horus" >
 
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.USES_POLICY_FORCE_LOCK" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
+
         <activity
             android:name=".page.HomePage"
             android:label="@string/app_name" >
@@ -25,7 +29,7 @@
                 android:value=".page.HomePage" />
         </activity>
 
-        <service android:name=".Notification.RunningNotification" />
+        <service android:name=".notification.RunningNotification" />
 
         <activity
             android:name=".page.DebugPage"
@@ -35,6 +39,28 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.eelaiwind.horus.page.HomePage" />
         </activity>
+        <activity
+            android:name=".page.SettingPage"
+            android:label="@string/title_activity_setting_page"
+            android:parentActivityName=".page.HomePage" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.eelaiwind.horus.page.HomePage" />
+        </activity>
+
+        <receiver
+            android:name=".notification.ScreenOffAdminReceiver"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_DEVICE_ADMIN" >
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/my_admin" />
+
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

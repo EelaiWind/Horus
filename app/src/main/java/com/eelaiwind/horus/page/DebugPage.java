@@ -7,7 +7,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import com.eelaiwind.horus.Notification.RunningNotification;
+import com.eelaiwind.horus.notification.RunningNotification;
 import com.eelaiwind.horus.PreferenceData;
 import com.eelaiwind.horus.R;
 import com.eelaiwind.horus.timeChart.TimeCategory;

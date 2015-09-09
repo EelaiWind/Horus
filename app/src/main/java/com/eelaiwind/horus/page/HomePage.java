@@ -7,14 +7,13 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.eelaiwind.horus.Notification.RunningNotification;
+import com.eelaiwind.horus.notification.RunningNotification;
 import com.eelaiwind.horus.PreferenceData;
 import com.eelaiwind.horus.R;
 import com.eelaiwind.horus.customView.CircleTimeChart;
@@ -24,7 +23,6 @@ import com.eelaiwind.horus.timeChart.TimeChartData;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 
 
@@ -91,6 +89,10 @@ public class HomePage extends Activity {
                 intent = new Intent(this,DebugPage.class);
                 startActivity(intent);
                 break;
+            case  R.id.btn_setting:
+                intent = new Intent(this,SettingPage.class);
+                startActivity(intent);
+                break;
         }
     }
 
@@ -111,15 +113,15 @@ public class HomePage extends Activity {
     }
 
     private boolean isTotalSwitchOn(){
-       return totalSwitch.getText().equals(OFF);
+       return preference.getBoolean(PreferenceData.TOTAL_SWITCH,false);
     }
 
     private void turnOnTotalSwitch(){
         Intent intent = new Intent(this, RunningNotification.class);
         startService(intent);
-        updateCircleTimeChart();
         totalSwitch.setText(OFF);
-        preference.edit().putBoolean(PreferenceData.TOTAL_SWITCH,true).apply();
+        preference.edit().putBoolean(PreferenceData.TOTAL_SWITCH, true).apply();
+        updateCircleTimeChart();
     }
 
     private void turnOffTotalSwitch(){
@@ -132,11 +134,13 @@ public class HomePage extends Activity {
     private ServiceConnection timeChartDataConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
+            Toast.makeText(HomePage.this,"onServiceConnected",Toast.LENGTH_SHORT).show();
             ArrayList<TimeChartData> dataList = ((RunningNotification.MyBinder) service).getTimeChartDatas();
             TimeCategory preState = TimeCategory.getTimCategory(preference.getInt(PreferenceData.PRE_STATE, 0), TimeCategory.UNKNOWN);
             int deltaTime = (int)(System.currentTimeMillis() - preference.getLong(PreferenceData.PRE_TIME,0));
             dataList.add(new TimeChartData(preState,deltaTime));
             circleTimeChart.setDrawingDatas(dataList);
+            unbindService(this);
         }
 
         @Override
@@ -146,6 +150,7 @@ public class HomePage extends Activity {
     };
 
     private void updateCircleTimeChart(){
+
         if (isTotalSwitchOn()) {
             Intent intent = new Intent(this, RunningNotification.class);
             bindService(intent, timeChartDataConnection, BIND_AUTO_CREATE);

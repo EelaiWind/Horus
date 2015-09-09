@@ -7,7 +7,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 
-import com.eelaiwind.horus.Notification.RunningNotification;
+import com.eelaiwind.horus.notification.RunningNotification;
 import com.eelaiwind.horus.PreferenceData;
 import com.eelaiwind.horus.R;
 import com.eelaiwind.horus.customView.LinearTimeChart;
