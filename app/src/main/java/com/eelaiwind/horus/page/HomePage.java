@@ -1,9 +1,13 @@
 package com.eelaiwind.horus.page;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -11,44 +15,47 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.eelaiwind.horus.Notification.RunningNotification;
+import com.eelaiwind.horus.PreferenceData;
 import com.eelaiwind.horus.R;
-import com.eelaiwind.horus.timeChart.CircleTimeChart;
+import com.eelaiwind.horus.customView.CircleTimeChart;
 import com.eelaiwind.horus.timeChart.TimeCategory;
 import com.eelaiwind.horus.timeChart.TimeChartData;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 
 public class HomePage extends Activity {
-    private final TimeCategory[] testTimeCategory = {TimeCategory.BUSY,TimeCategory.FREE,TimeCategory.OFF,TimeCategory.FREE,TimeCategory.OFF,TimeCategory.BUSY,TimeCategory.FREE,TimeCategory.BUSY,TimeCategory.OFF,TimeCategory.FREE,TimeCategory.BUSY,TimeCategory.OFF};
-    private final int[] testTimeInterval = {135,65,70,205,10,90,85,60,200,40,70,60};
-    private TimeChartData[] timeChartData;
-
-    public static final String EXTRA_CHART_DATA = "com.eelaiwind.horus.CHART_DATA";
 
     private final static String ON = "Turn ON", OFF = "Turn OFF";
-    private SharedPreferences pref;
+    private SharedPreferences preference;
     private Button totalSwitch;
+    private CircleTimeChart circleTimeChart;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.home_page);
-        pref = getSharedPreferences(PreferenceData.PREF_FILE_NAME,MODE_PRIVATE);
+
+        preference = getSharedPreferences(PreferenceData.FILE_NAME,MODE_PRIVATE);
         totalSwitch = (Button) findViewById(R.id.btn_total);
-        if (pref.getBoolean(PreferenceData.PREF_TOTAL_SWITCH,false)){
-           turnOnTotalSwitch();
+        circleTimeChart = ((CircleTimeChart) findViewById(R.id.circle_time_chart));
+
+        if (preference.getBoolean(PreferenceData.TOTAL_SWITCH,false)){
+            turnOnTotalSwitch();
         }
         else{
             turnOffTotalSwitch();
         }
+    }
 
-        try {
-            timeChartData = TimeChartData.converTimeChartData(testTimeCategory,testTimeInterval);
-            ((CircleTimeChart) findViewById(R.id.circle_time_chart)).setDrawingDatas(timeChartData);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateCircleTimeChart();
     }
 
     @Override
@@ -74,13 +81,25 @@ public class HomePage extends Activity {
     }
 
     public void changePage(View v){
+        Intent intent;
         switch (v.getId()){
             case R.id.btn_record:
-                Intent intent = new Intent(this,RecordPage.class);
-                intent.putExtra("LENGTH",timeChartData.length);
-                intent.putParcelableArrayListExtra(EXTRA_CHART_DATA, new ArrayList<>(Arrays.asList(timeChartData)));
+                intent = new Intent(this,RecordPage.class);
                 startActivity(intent);
                 break;
+            case R.id.btn_debug:
+                intent = new Intent(this,DebugPage.class);
+                startActivity(intent);
+                break;
+        }
+    }
+
+    public void reset(View v){
+        turnOffTotalSwitch();
+        getSharedPreferences(PreferenceData.FILE_NAME,MODE_PRIVATE).edit().clear().apply();
+        File dataFile = new File(getFilesDir(),RunningNotification.DATA_FILE_NAME);
+        if (dataFile.exists()){
+            dataFile.delete();
         }
     }
 
@@ -98,14 +117,52 @@ public class HomePage extends Activity {
     private void turnOnTotalSwitch(){
         Intent intent = new Intent(this, RunningNotification.class);
         startService(intent);
+        updateCircleTimeChart();
         totalSwitch.setText(OFF);
-        pref.edit().putBoolean(PreferenceData.PREF_TOTAL_SWITCH,true).apply();
+        preference.edit().putBoolean(PreferenceData.TOTAL_SWITCH,true).apply();
     }
 
     private void turnOffTotalSwitch(){
         Intent intent = new Intent(this, RunningNotification.class);
         stopService(intent);
         totalSwitch.setText(ON);
-        pref.edit().putBoolean(PreferenceData.PREF_TOTAL_SWITCH,false).apply();
+        preference.edit().putBoolean(PreferenceData.TOTAL_SWITCH,false).apply();
     }
+
+    private ServiceConnection timeChartDataConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            ArrayList<TimeChartData> dataList = ((RunningNotification.MyBinder) service).getTimeChartDatas();
+            TimeCategory preState = TimeCategory.getTimCategory(preference.getInt(PreferenceData.PRE_STATE, 0), TimeCategory.UNKNOWN);
+            int deltaTime = (int)(System.currentTimeMillis() - preference.getLong(PreferenceData.PRE_TIME,0));
+            dataList.add(new TimeChartData(preState,deltaTime));
+            circleTimeChart.setDrawingDatas(dataList);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Toast.makeText(HomePage.this, "onServiceDisconnected", Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    private void updateCircleTimeChart(){
+        if (isTotalSwitchOn()) {
+            Intent intent = new Intent(this, RunningNotification.class);
+            bindService(intent, timeChartDataConnection, BIND_AUTO_CREATE);
+        }
+        else{
+            try {
+                ObjectInputStream in = new ObjectInputStream(openFileInput(RunningNotification.DATA_FILE_NAME));
+                ArrayList<TimeChartData> dataList = (ArrayList<TimeChartData>) in.readObject();
+                TimeCategory preState = TimeCategory.getTimCategory(preference.getInt(PreferenceData.PRE_STATE, 0), TimeCategory.UNKNOWN);
+                int deltaTime = (int)(System.currentTimeMillis() - preference.getLong(PreferenceData.PRE_TIME,0));
+                dataList.add(new TimeChartData(preState,deltaTime));
+                circleTimeChart.setDrawingDatas(dataList);
+                in.close();
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 }

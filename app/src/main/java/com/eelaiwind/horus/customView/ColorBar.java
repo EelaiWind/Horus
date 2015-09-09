@@ -13,6 +13,10 @@ import com.eelaiwind.horus.R;
 
 /**
  *      繪製進度條的View，可以設定顏色 、最大值、目前數值
+ *      [attribute]
+ *          barColor : 進度條的填充顏色
+ *          maxValue : 最大值 (最小值預設 = 0)
+ *          nowValue : 現在的進度
  */
 public class ColorBar extends View {
     private Paint backgroundPaint, barPaint, textPaint;
@@ -27,6 +31,8 @@ public class ColorBar extends View {
         color = typeArray.getColor(R.styleable.ColorBar_barColor,0xffff0000);
         max = typeArray.getInt(R.styleable.ColorBar_maxValue, 100);
         value = typeArray.getInt(R.styleable.ColorBar_nowValue,50);
+
+        // attribute檔記得要recycle
         typeArray.recycle();
         init();
     }

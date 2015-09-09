@@ -1,42 +1,69 @@
 package com.eelaiwind.horus.page;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.support.v7.app.ActionBarActivity;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 
+import com.eelaiwind.horus.Notification.RunningNotification;
+import com.eelaiwind.horus.PreferenceData;
 import com.eelaiwind.horus.R;
-import com.eelaiwind.horus.timeChart.LinearTimeChart;
+import com.eelaiwind.horus.customView.LinearTimeChart;
 import com.eelaiwind.horus.timeChart.TimeCategory;
 import com.eelaiwind.horus.timeChart.TimeChartData;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
-import java.util.Objects;
 
 
 public class RecordPage extends Activity{
-    private final TimeCategory[] testTimeCategory = {TimeCategory.BUSY,TimeCategory.FREE,TimeCategory.OFF,TimeCategory.FREE,TimeCategory.OFF,TimeCategory.BUSY,TimeCategory.FREE,TimeCategory.BUSY,TimeCategory.OFF,TimeCategory.FREE,TimeCategory.BUSY,TimeCategory.OFF};
-    private final int[] testTimeInterval = {135,65,70,205,10,90,85,60,200,40,70,60};
 
-    private TimeChartData[] timeChartDatas = new TimeChartData[0];
+    private long lastDataTime;
+    private SharedPreferences preferences;
+    private EditText editText;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.record_page);
 
-        try {
-            timeChartDatas = TimeChartData.converTimeChartData(testTimeCategory,testTimeInterval);
-        } catch (Exception e) {
-            e.printStackTrace();
+        preferences = getSharedPreferences(PreferenceData.FILE_NAME,MODE_PRIVATE);
+        editText = (EditText) findViewById(R.id.show_message);
+        lastDataTime = 0;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (preferences.contains(PreferenceData.LAST_DATA_TIME)){
+
+            if (lastDataTime == preferences.getLong(PreferenceData.LAST_DATA_TIME,0))
+                return;
+
+            lastDataTime = preferences.getLong(PreferenceData.LAST_DATA_TIME,0);
+            try {
+                ObjectInputStream in = new ObjectInputStream(openFileInput(RunningNotification.LAST_DATA_FILE_NAME));
+                ArrayList<TimeChartData> timeChartDatas = (ArrayList<TimeChartData>) in.readObject();
+                in.close();
+
+                ((LinearTimeChart) findViewById(R.id.linear_time_chart)).setDrawingDatas(timeChartDatas);
+                StringBuilder sb = new StringBuilder();
+                for (TimeChartData data : timeChartDatas){
+                    sb.append(data.getTimeCategory().getName()).append(' ').append(data.getMillisecond()).append(" \n");
+                }
+                editText.setText(sb.toString());
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+
         }
-        ((LinearTimeChart) findViewById(R.id.linear_time_chart)).setDrawingDatas(timeChartDatas);
-        EditText editText = (EditText) findViewById(R.id.show_message);
-        editText.setText("");
-        for (TimeChartData data : timeChartDatas){
-            editText.append(data.getTimeCategory().getName()+' '+data.getMinute()+'\n');
+        else{
+            TimeChartData[] data = new TimeChartData[1];
+            data[0] = new TimeChartData(TimeCategory.OFF,1440);
+            ((LinearTimeChart) findViewById(R.id.linear_time_chart)).setDrawingDatas(data);
+            editText.setText("Last time chart data doesn't exist");
         }
     }
 

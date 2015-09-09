@@ -1,4 +1,4 @@
-package com.eelaiwind.horus.timeChart;
+package com.eelaiwind.horus.customView;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -9,9 +9,16 @@ import android.util.AttributeSet;
 import android.view.View;
 
 import com.eelaiwind.horus.R;
+import com.eelaiwind.horus.timeChart.TimeChartData;
+
+import java.util.ArrayList;
 
 /**
- * Created by Eelai Wind on 2015/8/24.
+ * 圓形時間圖表
+ * [attribute]
+ *     radius : 圓形半徑
+ *
+ * 用 setDrawingDatas(...) 設定時間圖表資料
  */
 public class CircleTimeChart extends View {
     private int STROKE_WIDTH = 10;
@@ -31,6 +38,21 @@ public class CircleTimeChart extends View {
 
     }
 
+    public void setDrawingDatas(ArrayList<TimeChartData> timeChartData) {
+
+        float cumulativeSum = -90;
+        drawingDatas = new DrawingData[timeChartData.size()];
+        for (int i = 0 ; i < timeChartData.size() ; i++){
+            drawingDatas[i] = new DrawingData();
+            drawingDatas[i].color = timeChartData.get(i).getTimeCategory().getColor();
+            drawingDatas[i].startDegree = cumulativeSum;
+            float deltaDegree = 360f*timeChartData.get(i).getMillisecond()/TimeChartData.MILLISECOND_A_DAY;
+            drawingDatas[i].deltaDegree = deltaDegree;
+            cumulativeSum += deltaDegree;
+        }
+        invalidate();
+    }
+
     public void setDrawingDatas(TimeChartData[] timeChartData) {
 
         float cumulativeSum = -90;
@@ -39,7 +61,7 @@ public class CircleTimeChart extends View {
             drawingDatas[i] = new DrawingData();
             drawingDatas[i].color = timeChartData[i].getTimeCategory().getColor();
             drawingDatas[i].startDegree = cumulativeSum;
-            float deltaDegree = 360f*timeChartData[i].getMinute()/1440;
+            float deltaDegree = 360f*timeChartData[i].getMillisecond()/TimeChartData.MILLISECOND_A_DAY;
             drawingDatas[i].deltaDegree = deltaDegree;
             cumulativeSum += deltaDegree;
         }
